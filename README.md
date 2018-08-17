@@ -1,4 +1,4 @@
-tracker-search-provider
+tracker-file-search
 =======================
 
 __Gnome-shell extension__: displays tracker search results in the shell overview

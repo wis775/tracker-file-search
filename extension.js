@@ -110,7 +110,7 @@ const TrackerSearchProvider = new Lang.Class({
             'description' : path + " - " + lastMod,
             'createIcon' : function(size) {
                 let icon = Gio.app_info_get_default_for_type(type, null).get_icon();
-                return new St.Icon({ gicon: icon, 
+                return new St.Icon({ gicon: icon,
                                      icon_size: size });
             }
         };
@@ -181,9 +181,9 @@ const TrackerSearchProvider = new Lang.Class({
                 });
             };
         } catch (error) {
-            //global.log("TrackerSearchProvider: Could not traverse results cursor: " + error.message);
+            log("TrackerSearchProvider: Could not traverse results cursor: " + error.message);
         }
-        this.searchSystem.setResults(this, results);
+        callback(results);
     },
 
     _connection_ready : function(object, result, terms, filetype, callback) {
@@ -192,8 +192,8 @@ const TrackerSearchProvider = new Lang.Class({
             var query = this._getQuery(terms, filetype);
             var cursor = conn.query_async(query, null, Lang.bind(this, this._getResultSet, callback));
         } catch (error) {
-            global.log("Querying Tracker failed. Please make sure you have the --GObject Introspection-- package for Tracker installed.");
-            global.log(error.message);
+            log("Querying Tracker failed. Please make sure you have the --GObject Introspection-- package for Tracker installed.");
+            log(error.message);
         }
     },
 
@@ -225,8 +225,8 @@ const TrackerSearchProvider = new Lang.Class({
         try {
             Tracker.SparqlConnection.get_async(null, Lang.bind(this, this._connection_ready, terms, filetype, callback));
         } catch (error) {
-            global.log("Querying Tracker failed. Please make sure you have the --GObject Introspection-- package for Tracker installed.");
-            global.log(error.message);
+            log("Querying Tracker failed. Please make sure you have the --GObject Introspection-- package for Tracker installed.");
+            log(error.message);
         }
         return [];
     },
@@ -263,13 +263,13 @@ function init() {
 function enable() {
     if (!trackerSearchProviderFiles) {
         trackerSearchProviderFiles = new TrackerSearchProvider("FILES", CategoryType.FTS);
-        Main.overview.addSearchProvider(trackerSearchProviderFiles);
+        Main.overview.viewSelector._searchResults._registerProvider(trackerSearchProviderFiles);
     }
 }
 
 function disable() {
     if (trackerSearchProviderFiles){
-        Main.overview.removeSearchProvider(trackerSearchProviderFiles);
+        Main.overview.viewSelector._searchResults._unregisterProvider(trackerSearchProviderFiles);
         trackerSearchProviderFiles = null;
     }
 }

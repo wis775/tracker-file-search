@@ -1,7 +1,7 @@
 {
-  "uuid": "tracker-search-provider@sinnix.de",
-  "name": "Tracker Search Provider",
+  "uuid": "tracker-file-search@wis775",
+  "name": "Tracker File Search",
   "description": "Provide tracker search results in overview",
-  "shell-version": ["3.10"],
-  "url": "https://github.com/hamiller/tracker-search-provider"
+  "shell-version": ["3.28"],
+  "url": "https://github.com/wis775/tracker-file-search"
 }
