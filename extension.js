@@ -36,12 +36,6 @@ const DEFAULT_EXEC = 'xdg-open';
 const MAX_RESULTS = 10;
 const ICON_SIZE = 64;
 
-const CategoryType = {
-    FTS : 0,
-    FILES : 1,
-    FOLDERS : 2
-};
-
 var trackerSearchProviderFiles = null;
 var trackerSearchProviderFolders = null;
 
@@ -49,50 +43,37 @@ var trackerSearchProviderFolders = null;
 const TrackerSearchProvider = new Lang.Class({
     Name : 'TrackerSearchProvider',
 
-    _init : function(title, categoryType) {
-        this._categoryType = categoryType;
+    _init : function(title) {
         this._title = title;
         this.id = 'tracker-search-' + title;
-        this.appInfo = {get_name : function() {return 'tracker-needle';},
-                        get_icon : function() {return Gio.icon_new_for_string("/usr/share/icons/gnome/256x256/actions/system-search.png");},
-                        get_id : function() {return this.id;}
+        this.appInfo = {get_name : function() {return 'Tracker Search';},
+                        get_icon : function() {return Gio.icon_new_for_string("/usr/share/icons/Adwaita/256x256/actions/system-search.png");},
+                        get_id : function() {return 'tracker-needle.desktop';}
         };
         this.resultsMap = new Map();
     },
 
     _getQuery : function (terms, filetype) {
-        var query = "";
+        search_term = terms.join(" ").toLowerCase();
+    	log("tracker search - getQery terms = '"+ search_term + "' , filetype='" + filetype + '"');
+        var select = 'SELECT'
+                        + ' ?urn nie:url(?urn)'
+                        + '     tracker:coalesce(nie:title(?urn), nfo:fileName(?urn), "unknown name")'
+                        + '     nie:url(?parent)'
+                        + '     nfo:fileLastModified(?urn) ';
+                        
+        var order = ' ORDER BY'
+                        + ' DESC(nfo:fileLastModified(?urn))'
+                        + ' ASC(nie:title(?urn)) '
+                        + ' DESC(nie:contentCreated(?urn))'
+                        + ' OFFSET 0 LIMIT ' + String(MAX_RESULTS);
 
-        if (this._categoryType == CategoryType.FTS) {
-            var terms_in_sparql = "";
-
-            for (var i = 0; i < terms.length; i++) {
-                if (terms_in_sparql.length > 0) terms_in_sparql += " ";
-                terms_in_sparql += terms[i] + "*";
-            }
-            // Technically, the tag should really be matched
-            // separately not as one phrase too.
-            query += "SELECT ?urn nie:url(?urn) tracker:coalesce(nie:title(?urn), nfo:fileName(?urn)) nie:url(?parent) nfo:fileLastModified(?urn) WHERE { { ";
-            if (filetype)
-                query += " ?urn a nfo:" + filetype + " .";
-            else
-                query += " ?urn a nfo:FileDataObject .";
-            query += " ?urn fts:match \"" + terms_in_sparql + "\" } UNION { ?urn nao:hasTag ?tag . FILTER (fn:contains (fn:lower-case (nao:prefLabel(?tag)), \"" + terms + "\")) }";
-            query += " OPTIONAL { ?urn nfo:belongsToContainer ?parent .  ?r2 a nfo:Folder . FILTER(?r2 = ?urn). } . FILTER(!BOUND(?r2)). } ORDER BY DESC(nfo:fileLastModified(?urn)) ASC(nie:title(?urn)) OFFSET 0 LIMIT " + String(MAX_RESULTS);
-            //  ?r2 a nfo:Folder . FILTER(?r2 = ?urn). } . FILTER(!BOUND(?r2) is supposed to filter out folders, but this fails for 'root' folders in which is indexed (as 'Music', 'Documents' and so on ..) - WHY?
-
-        } else if (this._categoryType == CategoryType.FILES) {
-            // TODO: Do we really want this?
-        } else if (this._categoryType == CategoryType.FOLDERS) {
-            query += "SELECT ?urn nie:url(?urn) tracker:coalesce(nie:title(?urn), nfo:fileName(?urn)) nie:url(?parent) nfo:fileLastModified(?urn) WHERE {";
-            query += "  ?urn a nfo:Folder .";
-            query += "  FILTER (fn:contains (fn:lower-case (nfo:fileName(?urn)), '" + terms + "')) .";
-            query += "  ?urn nfo:belongsToContainer ?parent ;";
-            query += "  tracker:available true .";
-            query += "} ORDER BY DESC(nfo:fileLastModified(?urn)) DESC(nie:contentCreated(?urn)) ASC(nie:title(?urn)) OFFSET 0 LIMIT " + String(MAX_RESULTS);
-        }
-
-        return query;
+        
+        var where = "WHERE {?urn nie:url ?url   FILTER (fn:contains (fn:lower-case (nfo:fileName(?urn)), '" + search_term + "'))}"
+                
+        var queryStatement =  select + where + order;
+        log("tracker search - tracker sparql --query  '" + queryStatement +"'");
+        return queryStatement;
     },
 
     _getResultMeta : function(resultId) {
@@ -128,8 +109,8 @@ const TrackerSearchProvider = new Lang.Class({
         var uri = String(result);
         // Action executed when clicked on result
         var f = Gio.file_new_for_uri(uri);
-        var fileName = f.get_path();
-        Util.spawn([DEFAULT_EXEC, fileName]);
+        var fileName = "\"" + f.get_path() + "\"" ; // double quotes ensure to be able to read files/directories with spaces in name
+		Util.trySpawnCommandLine( DEFAULT_EXEC + " " + fileName);
     },
 
     _getResultSet: function (obj, result, callback) {
@@ -241,7 +222,7 @@ const TrackerSearchProvider = new Lang.Class({
     },
 
     filterResults : function(results, max) {
-        return results.slice(0, max);
+        return results.slice(0, MAX_RESULTS);
     },
 
     launchSearch: function(terms) {
@@ -257,12 +238,12 @@ const TrackerSearchProvider = new Lang.Class({
 });
 
 function init() {
-//global.log("-------- fmi init: hier sollte die Tracker-Connection aufgebaut werden?");
+//log("-------- fmi init: hier sollte die Tracker-Connection aufgebaut werden?");
 }
 
 function enable() {
     if (!trackerSearchProviderFiles) {
-        trackerSearchProviderFiles = new TrackerSearchProvider("FILES", CategoryType.FTS);
+        trackerSearchProviderFiles = new TrackerSearchProvider("FILES");
         Main.overview.viewSelector._searchResults._registerProvider(trackerSearchProviderFiles);
     }
 }
